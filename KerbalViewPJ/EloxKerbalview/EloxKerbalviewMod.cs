@@ -9,10 +9,15 @@ namespace EloxKerbalview
     {
         static bool loaded = false;
         private GameObject kerbalCameraObject = null;
-        private Camera currentCamera;
+        private Camera flightCamera;
+        private Vector3 savedPosition;
+        private Quaternion savedRotation;
+        
         private KSP.Sim.impl.VesselComponent kerbal = null;
+        private KSP.Sim.impl.VesselBehavior kerbalBehavior = null;
         Rect windowRect;
         bool drawUI = false;
+        bool firstPersonEnabled = false;
         private int WINDOW_WIDTH = 500;
         private int WINDOW_HEIGHT = 1000;
         static float cameraForwardOffset = 10;
@@ -34,65 +39,66 @@ namespace EloxKerbalview
         void Awake() {
             windowRect = new Rect((Screen.width * 0.85f) - (WINDOW_WIDTH / 2), (Screen.height / 2) - (WINDOW_HEIGHT / 2), 0, 0);
         }
-
-        
+  
         void Update() {
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha3)) drawUI = !drawUI;
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && findKerbal()) {
                 if (!isFirstPersonViewEnabled()) {
-                    statusMsg = "Enabling first person";
-
-                    if (kerbalCameraObject) {
-                        Destroy(kerbalCameraObject);
-                    }
-
-                    currentCamera = Camera.main;
-                    var camera = Instantiate(Camera.main);
-                    camera.fieldOfView = cameraFOV;
-                    camera.nearClipPlane = 0.01f*cameraNearClipPlane;
-                    kerbalCameraObject = camera.gameObject;
-                    kerbalCameraObject.name = "KerbalCamera";
-                    
-                    currentCamera.enabled = false;
-                    camera.enabled = true;
+                    enableFirstPerson();
                 } else {
-                    returnCamera();
+                    disableFirstPerson();
                 }
             }
 
             if (isFirstPersonViewEnabled()) {
-                if (kerbal != null) {
-                    var kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
-                    kerbalCameraObject.transform.rotation = kerbalBehavior.transform.rotation;
-                    currentCamera.gameObject.transform.rotation = kerbalCameraObject.transform.rotation;
-                    kerbalCameraObject.transform.position = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;       
+                if (kerbal != null && kerbalBehavior != null) {
+                    updateCameraPosition();
                 } else {
-                    returnCamera();
+                    disableFirstPerson();
                 }
-                
             }
         }
 
-        void returnCamera() {
-            statusMsg = "Returning camera";
-            kerbalCameraObject.GetComponent<Camera>().enabled = false;
-            if (currentCamera) {
-                currentCamera.enabled = true;
-            } else {
-                Camera.main.enabled = true;
+        void updateCameraPosition() {
+                flightCamera.transform.rotation = kerbalBehavior.transform.rotation;
+                flightCamera.transform.position = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;       
+        }
+
+        void enableFirstPerson() {
+            statusMsg = "Enabling first person";
+            GameManager.Instance.Game.CameraManager.SelectFlightCameraMode(KSP.Sim.CameraMode.None);
+            flightCamera = Camera.main;
+            savedPosition = flightCamera.transform.position;
+            savedRotation = flightCamera.transform.rotation;
+            flightCamera.fieldOfView = cameraFOV;
+            flightCamera.nearClipPlane = 0.01f*cameraNearClipPlane;
+            
+            firstPersonEnabled = true;
+        }
+
+        void disableFirstPerson() {
+            statusMsg = "Disabling First Person";
+            kerbal = null;
+            if (flightCamera) {
+                flightCamera.transform.position = savedPosition;
+                flightCamera.transform.rotation = savedRotation;
             }
+            GameManager.Instance.Game.CameraManager.SelectFlightCameraMode(KSP.Sim.CameraMode.Auto);
+            firstPersonEnabled = false;
         }
 
         bool isFirstPersonViewEnabled() {
-            return kerbalCameraObject && kerbalCameraObject.GetComponent<Camera>().enabled && kerbalCameraObject.GetComponent<Camera>() == Camera.main;
+            firstPersonEnabled = firstPersonEnabled && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.None;
+            return firstPersonEnabled;
         }
 
         bool findKerbal() {
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
             kerbal = (activeVessel != null && activeVessel.IsKerbalEVA && GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode)? activeVessel : null;
-
-            return kerbal != null;
+            kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
+            return kerbal != null && kerbalBehavior != null;
         }
+
         void OnGUI() {
             if (drawUI) {
                 windowRect = GUILayout.Window(
@@ -105,22 +111,26 @@ namespace EloxKerbalview
             }
         }
 
-        private void FillWindow(int windowID) {
+        void FillWindow(int windowID) {
             var boxStyle = GUI.skin.GetStyle("Box");
             GUILayout.BeginVertical();
             try {
-                if (GameManager.Instance.Game) {
+                if (kerbal != null && GameManager.Instance.Game) {
                     GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
                     GUILayout.Label($"Is Kerbal: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().IsKerbalEVA}");
-                    GUILayout.Label($"Position: {Game.ViewController.GetBehaviorIfLoaded(kerbal).transform.position}");
-                    GUILayout.Label($"Saved game camera: {currentCamera.tag}");
-                    GUILayout.Label($"First person camera: {kerbalCameraObject.name}");
+                    GUILayout.Label($"Position: {kerbalBehavior.transform.position}");
+                    GUILayout.Label($"Current Camera Name: {GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.gameObject.name}");
+                    GUILayout.Label($"Current Camera Position: {GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.gameObject.transform.position}");
+                    //GUILayout.Label($"Current Camera Position: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.CameraShot.CameraPosition.ToString()}");
+                    //GUILayout.Label($"Current Camera Position: {GameManager.Instance.Game.CameraManager.PrimaryScreenCameraShot.CameraPosition.ToString()}");
+
                 } 
             } catch (Exception exception) {
                 Logger.Info(exception.ToString());
             }
 
             GUILayout.Label($"Status: {statusMsg}");
+            GUILayout.Label($"First Person Enabled: {firstPersonEnabled}");
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("Forward offset: ", GUILayout.Width(WINDOW_WIDTH / 2));
