@@ -79,7 +79,7 @@ namespace EloxKerbalview
                 }
             }
 
-            if (gameChangedCamera()) disableFirstPerson();
+            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
             if (isFirstPersonViewEnabled()) updateStars();
             
         }
@@ -97,7 +97,7 @@ namespace EloxKerbalview
         }
 
         bool gameChangedCamera() {
-            return currentCamera && currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto;
+            return currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal;
         }
 
         void enableFirstPerson() {
@@ -212,39 +212,35 @@ namespace EloxKerbalview
             GUILayout.BeginVertical();
             try {
                 if (GameManager.Instance.Game) {
-                    Camera skyCameraDeb = null, scaledCameraDeb = null;
+                    //Camera skyCameraDeb = null, scaledCameraDeb = null;
 
                     foreach (Camera c in Camera.allCameras) {
-                        if (c.gameObject.name == "FlightCameraSkybox_Main") {
-                            skyCameraDeb = c;
-                        } else if (c.gameObject.name == "FlightCameraScaled_Main") { 
-                            scaledCameraDeb = c;
-                        }
+                        GUILayout.Label($"Camera: {c.transform.name} {c.transform.parent.name}");
                     }
                     
-                    //GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
+                    GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
                     //GUILayout.Label($"Is Kerbal: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().IsKerbalEVA}");
                     //GUILayout.Label($"Position: {kerbalBehavior.transform.position}");
                     //GUILayout.Label($"Rotation: {kerbalBehavior.transform.rotation}");
                     //GUILayout.Label($"Euler Angles: {kerbalBehavior.transform.rotation.eulerAngles}");
                     GUILayout.Label($"Main Pos: {Camera.main.transform.position}");
-                    GUILayout.Label($"Skybox Pos: {skyCameraDeb.transform.position}");
-                    GUILayout.Label($"Scaled Pos: {scaledCameraDeb.transform.position}");
+                    //GUILayout.Label($"Skybox Pos: {skyCameraDeb.transform.position}");
+                    //GUILayout.Label($"Scaled Pos: {scaledCameraDeb.transform.position}");
 
-                    GUILayout.Label($"Main Rot: {Camera.main.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Skybox Rot: {skyCameraDeb.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Scaled Rot: {scaledCameraDeb.transform.rotation.eulerAngles}");
+                    //GUILayout.Label($"Main Rot: {Camera.main.transform.rotation.eulerAngles}");
+                    //GUILayout.Label($"Skybox Rot: {skyCameraDeb.transform.rotation.eulerAngles}");
+                    //GUILayout.Label($"Scaled Rot: {scaledCameraDeb.transform.rotation.eulerAngles}");
 
-                    GUILayout.Label($"Main Parent: {Camera.main.transform.parent.name}");
-                    GUILayout.Label($"Skybox Parent: {skyCameraDeb.transform.parent.name}");
-                    GUILayout.Label($"Scaled Parent: {scaledCameraDeb.transform.parent.name}");
+                    //GUILayout.Label($"Main Parent: {Camera.main.transform.parent.name}");
+                    //GUILayout.Label($"Skybox Parent: {skyCameraDeb.transform.parent.name}");
+                   // GUILayout.Label($"Scaled Parent: {scaledCameraDeb.transform.parent.name}");
 
-                    GUILayout.Label($"Main LocalRot: {Camera.main.transform.localRotation.eulerAngles}");
-                    GUILayout.Label($"Skybox LocalRot: {skyCameraDeb.transform.localRotation.eulerAngles}");
-                    GUILayout.Label($"Scaled LocalRot: {scaledCameraDeb.transform.localRotation.eulerAngles}");
+                    //GUILayout.Label($"Main LocalRot: {Camera.main.transform.localRotation.eulerAngles}");
+                    //GUILayout.Label($"Skybox LocalRot: {skyCameraDeb.transform.localRotation.eulerAngles}");
+                    //GUILayout.Label($"Scaled LocalRot: {scaledCameraDeb.transform.localRotation.eulerAngles}");
                     
                     
-                    GUILayout.Label($"Current time variation: {skyCameraDeb.transform.rotation.eulerAngles.y - Camera.main.transform.rotation.eulerAngles.y}");
+                   // GUILayout.Label($"Current time variation: {skyCameraDeb.transform.rotation.eulerAngles.y - Camera.main.transform.rotation.eulerAngles.y}");
                     
                     
                     //GUILayout.Label($"Camera pitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pitch}");
@@ -252,7 +248,7 @@ namespace EloxKerbalview
                     //GUILayout.Label($"Camera pan: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pan}");
                     //GUILayout.Label($"Camera localHeading: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.localHeading}");
                     //GUILayout.Label($"Camera localPitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.localPitch}");
-                    //GUILayout.Label($"Unity camera position: {Camera.main.transform.position}");
+                    GUILayout.Label($"Unity camera : {Camera.main.transform.name}");
                     //GUILayout.Label($"Unity camera rotation: {Camera.main.transform.rotation}");
                     //GUILayout.Label($"Unity camera rotation Euler: {Camera.main.transform.rotation.eulerAngles}");
                     //GUILayout.Label($"Unity camera rotation Euler: {Camera.main.transform.parent.rotation.eulerAngles}");
