@@ -6,7 +6,7 @@ Allows a glimpse of the galaxy through the eyes of kerbals.
 - Currently is using the native controls and the camera is locked.
     - [A] and [D] to rotate
     - [Q] and [E] to slide sideway
-    - In space you can only use [Q] and [E] as yaw
+    - In space you can use [Q] and [E] as yaw 
 - Field Of View is set to 90.
 
 # Known issues
@@ -21,4 +21,6 @@ Allows a glimpse of the galaxy through the eyes of kerbals.
 
 
 
+![Image](https://cdn.discordapp.com/attachments/1079363074957508718/1080350354136367156/image.png)
+![Image](https://cdn.discordapp.com/attachments/1079363074957508718/1080350413468991538/image.png)
 
