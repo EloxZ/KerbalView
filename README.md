@@ -2,7 +2,7 @@
 Allows a glimpse of the galaxy through the eyes of kerbals.
 
 # How it works
-- In Flight Camera Mode Auto, press Alt + 2 to get into First Person View. Press again or press V to exit.
+- In Flight Camera Mode Auto, press Alt + 2 to get into First Person View. Press again or change Camera Mode with V to exit.
 - Currently is using the native controls and the camera is locked.
     [A] and [D] to rotate
     [Q] and [E] to slide sideway
