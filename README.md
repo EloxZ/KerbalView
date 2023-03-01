@@ -18,9 +18,3 @@ Allows a glimpse of the galaxy through the eyes of kerbals.
 - Revamped controls on land and space (Jetpack)
 - Immersive vision
 - Configurable values
-
-
-
-![Image](https://cdn.discordapp.com/attachments/1079363074957508718/1080350354136367156/image.png)
-![Image](https://cdn.discordapp.com/attachments/1079363074957508718/1080350413468991538/image.png)
-
