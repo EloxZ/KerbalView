@@ -3,11 +3,11 @@
     "author": "Elox",
     "name": "Kerbal View",
     "description": "Allows a glimpse of the galaxy through the eyes of kerbals.",
-    "source": "TBD",
+    "source": "github.com/EloxZ/KerbalView",
     "version": "1.0",
     "dependencies": [],
     "ksp2_version": {
-        "min": "0.0.1",
-        "max": "0.0.1"
+        "min": "0.1.0",
+        "max": "0.1.0"
     }
 }
