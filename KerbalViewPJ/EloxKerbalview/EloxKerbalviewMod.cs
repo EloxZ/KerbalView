@@ -67,8 +67,7 @@ namespace EloxKerbalview
         }
 
         bool gameChangedCamera() {
-            return currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || kerbal == null;
-            
+            return currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal;
         }
         
         void enableFirstPerson() {
