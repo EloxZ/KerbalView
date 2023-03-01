@@ -24,7 +24,7 @@ namespace EloxKerbalview
         
         Rect windowRect;
         bool drawUI = false;
-        Transform savedParent;
+        Transform savedParent, savedSkyParent, savedScaledParent, savedSky, savedScaled, savedCamera;
         bool firstPersonEnabled = false;
         private int WINDOW_WIDTH = 500;
         private int WINDOW_HEIGHT = 1000;
@@ -42,7 +42,9 @@ namespace EloxKerbalview
         float timerRotation = 0.1f;
         static Vector3 currentCameraVelocity = Vector3.zero;
         float smoothTime = 0.001f;
+        float lastKerbalYRotation;
         bool rotatedLastFrame = false;
+        double lastTime;
         private Camera currentCamera;
         static float cameraForwardOffset = 10;
         static float cameraUpOffset = 12;
@@ -66,7 +68,6 @@ namespace EloxKerbalview
   
         void Update() {            
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha3)) drawUI = !drawUI;
-            //if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha4)) 
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && findKerbal() && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
                 if (!isFirstPersonViewEnabled()) {
                     enableFirstPerson();
@@ -74,202 +75,90 @@ namespace EloxKerbalview
                     disableFirstPerson();
                 }
             }
-            
+
+            if (gameChangedCamera()) disableFirstPerson();
+            if (isFirstPersonViewEnabled()) updateStars();
         }
 
-        void FixedUpdate() {
-            if (isFirstPersonViewEnabled()) {
-                if (!gameChangedCamera() && kerbal != null && kerbalBehavior != null) {
-                    updateCameraPosition();
-                } else {
-                    disableFirstPerson();
-                }
-            }
+        void updateStars() {
+            var movement = currentCamera.transform.rotation.eulerAngles.y - lastKerbalYRotation;
+            lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
+
+            skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, skyCamera.transform.eulerAngles.y + movement, currentCamera.transform.eulerAngles.z);
+            scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, skyCamera.transform.eulerAngles.y + movement, currentCamera.transform.eulerAngles.z);
         }
 
         bool gameChangedCamera() {
-            return currentCamera && currentCamera != Camera.main || savedCameraMode != GameManager.Instance.Game.CameraManager.FlightCamera.Mode;
-        }
-
-        void updateCameraPosition() {
-            statusMsg = "not moving sky";
-            bool isRotating = Quaternion.Angle(lastKerbalRotation, kerbalBehavior.transform.rotation) > 0;
-            timerRotation = (isRotating)? 0 : timerRotation + Time.deltaTime;
-
-            if (isRotating || timerRotation < 0.05f) {
-                statusMsg = "moving sky";
-                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ModifyGimbalState(new KSP.Sim.GimbalStateIncremental()
-                {
-                    heading = new double?(kerbal.Heading + 90),
-                    
-                });
-            }
-
-            rotatedLastFrame = isRotating;
-            lastKerbalRotation = kerbalBehavior.transform.rotation;
-            
-
-            // Move Sky
-            //skyCamera.transform.rotation = kerbalBehavior.transform.rotation;
-            //scaledCamera.transform.rotation = kerbalBehavior.transform.rotation;             
-            // Keep custom FOV
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV);
+            return currentCamera && currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto;
         }
 
         void enableFirstPerson() {
-            statusMsg = "Enabling first person";
+            // Take control of the camera
+            GameManager.Instance.Game.CameraManager.DisableInput();
 
             currentCamera = Camera.main;
 
-            savedCameraMode = GameManager.Instance.Game.CameraManager.FlightCamera.Mode;
-            savedDistance = GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.distance;
+            // Get SkyBox and Scaled camera
+            foreach (Camera c in Camera.allCameras) {
+                if (c.gameObject.name == "FlightCameraSkybox_Main") {
+                    skyCamera = c;
+                } else if (c.gameObject.name == "FlightCameraScaled_Main") { 
+                    scaledCamera = c;
+                }
+            }
 
+            // Save config
             savedParent = currentCamera.transform.parent;
+            savedRotation = currentCamera.transform.localRotation;
+            savedPosition = currentCamera.transform.localPosition;
+
             savedFov = currentCamera.fieldOfView;
             savedNearClip = currentCamera.nearClipPlane;
-            savedPosition = currentCamera.transform.position;
-            savedRotation = currentCamera.transform.rotation;
 
-
-            //GameManager.Instance.Game.CameraManager.DisableInput();
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minDistance = -0.01f*cameraForwardOffset;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.DefaultDistance = -0.01f*cameraForwardOffset;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.maxDistance = -0.01f*cameraForwardOffset;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ModifyGimbalState(new KSP.Sim.GimbalStateIncremental()
-            //{
-            //   distance = new double?(-0.01f*cameraForwardOffset)
-            //});
-
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = cameraFOV;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.defaultFOV = cameraFOV;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV);
-
-            lastKerbalRotation = kerbalBehavior.transform.rotation;
-            GameManager.Instance.Game.CameraManager.DisableInput();
-
-            // Align sky with our little friend
-            GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ModifyGimbalState(new KSP.Sim.GimbalStateIncremental()
-            {
-                heading = new double?(kerbal.Heading + 90),
-                distance = new double?(2)
-            });
-
-            //firstPersonEnabled = true;
-
-            
-
-            GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV);
             // Camera config
             currentCamera.fieldOfView = cameraFOV;
             currentCamera.nearClipPlane = 0.01f*cameraNearClipPlane;
-            
 
-            
-            // Camera position
+            // Current sky deviation caused by time
+            var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
+
+            // Anchor camera to our little friend
             currentCamera.transform.parent = kerbalBehavior.transform;
             currentCamera.transform.localRotation = Quaternion.identity;
             var targetPosition = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;
             currentCamera.transform.position = targetPosition;
-
-            // Config Game Camera
-
-            //GameManager.Instance.Game.CameraManager.SelectFlightCameraMode(KSP.Sim.CameraMode.None);
-
-
             
-            
-            
-            // Get SkyBox camera
-            //foreach (Camera c in Camera.allCameras) {
-            //    if (c.gameObject.name == "FlightCameraSkybox_Main") skyCamera = c;
-                //if (c.gameObject.name == "FlightCameraScaled_Main") scaledCamera = c;
-            //}
+            // Sync cameras and desync by time
+            skyCamera.transform.rotation = currentCamera.transform.rotation;
+            scaledCamera.transform.rotation = currentCamera.transform.rotation;
+            skyCamera.transform.eulerAngles += new Vector3(0,time,0);
+            scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
 
-            //savedSkyboxRotation = skyCamera.transform.rotation;
-
-            // Swap cameras
-            
-            
-            
-
-
-
-            //savedScaledCameraRotation = scaledCamera.transform.rotation;
-
-            //lastKerbalRotation = kerbalBehavior.transform.rotation;
-            //lastKerbalHeading = kerbal.Heading + 90;
-            //lastKerbalRoll = kerbal.Roll_HorizonRelative;
-            //lastKerbalPitch = kerbal.Pitch_HorizonRelative;
-
-            //https://answers.unity.com/questions/416169/finding-pitchrollyaw-from-quaternions.html
-            //GameManager.Instance.Game.CameraManager.DisableInput();
-            
-            //lastKerbalRotation = kerbalBehavior.transform.rotation;
-
-            
-            
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ModifyGimbalState(new KSP.Sim.GimbalStateIncremental()
-            //{
-            //    heading = new double?(kerbal.Heading + 90),
-            //    pitch = new double?(kerbal.Pitch_HorizonRelative),
-            //    roll = new double?(kerbal.Roll_HorizonRelative)
-            //});
+            lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
 
             firstPersonEnabled = true;
         }
 
         void disableFirstPerson() {
-            statusMsg = "Disabling First Person";
+            var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
 
-            // Reset variables
-            kerbal = null;
-            kerbalBehavior = null;
-
+            // Revert changes
             currentCamera.transform.parent = savedParent;
+            currentCamera.transform.localPosition = savedPosition;
+            currentCamera.transform.localRotation = savedRotation;
+
+            // Sync cameras and desync by time
+            skyCamera.transform.rotation = currentCamera.transform.rotation;
+            scaledCamera.transform.rotation = currentCamera.transform.rotation;
+            skyCamera.transform.eulerAngles += new Vector3(0,time,0);
+            scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
+
             currentCamera.nearClipPlane = savedNearClip;
-
-            GameManager.Instance.Game.CameraManager.targetGimbalState.distance = savedDistance;
-            GameManager.Instance.Game.CameraManager.targetGimbalState.pan = Vector2.zero;
-            //GameManager.Instance.Game.CameraManager.FocusFlightCameraOnOAB();
+            currentCamera.fieldOfView = savedFov;
+            
             GameManager.Instance.Game.CameraManager.EnableInput();
-            
-
-             
-
-    
-
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minDistance = 2;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.DefaultDistance = 8;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.maxDistance =  80000.0;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.defaultFOV = 60;
-
-            
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.DefaultDistance = -0.01f*cameraForwardOffset;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.maxDistance = -0.01f*cameraForwardOffset;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ModifyGimbalState(new KSP.Sim.GimbalStateIncremental()
-            //{
-            //    distance = new double?(8)
-            //});
-
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 60;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.defaultFOV = 60;
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(60);
 
             firstPersonEnabled = false;
-
-            
-            
-            
-            
-
-            
-
-            //GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.ResetGimbalAndCamera();
-            
-
-
-            //GameManager.Instance.Game.CameraManager.SelectFlightCameraMode(KSP.Sim.CameraMode.None);
-            //
         }
 
         bool isFirstPersonViewEnabled() {
@@ -293,23 +182,35 @@ namespace EloxKerbalview
                     GUILayout.Height(0),
                     GUILayout.Width(500));
             }
-        }
-
-        
+        } 
 
         void FillWindow(int windowID) {
             var boxStyle = GUI.skin.GetStyle("Box");
             GUILayout.BeginVertical();
             try {
                 if (GameManager.Instance.Game) {
+                    Camera skyCameraDeb = null, scaledCameraDeb = null;
+
+                    foreach (Camera c in Camera.allCameras) {
+                        if (c.gameObject.name == "FlightCameraSkybox_Main") {
+                            skyCameraDeb = c;
+                        } else if (c.gameObject.name == "FlightCameraScaled_Main") { 
+                            scaledCameraDeb = c;
+                        }
+                    }
                     
                     //GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
                     //GUILayout.Label($"Is Kerbal: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().IsKerbalEVA}");
                     //GUILayout.Label($"Position: {kerbalBehavior.transform.position}");
                     //GUILayout.Label($"Rotation: {kerbalBehavior.transform.rotation}");
                     //GUILayout.Label($"Euler Angles: {kerbalBehavior.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Kerbal localrotation: {kerbal.mainBody.transform.localRotation.eulerAngles}");
-                    GUILayout.Label($"Kerbal localrotation: {kerbal.mainBody.Rotation.localRotation}");
+                    GUILayout.Label($"Main: {Camera.main.transform.rotation.eulerAngles}");
+                    GUILayout.Label($"Skybox: {skyCameraDeb.transform.rotation.eulerAngles}");
+                    GUILayout.Label($"Scaled: {scaledCameraDeb.transform.rotation.eulerAngles}");
+                    GUILayout.Label($"timeDelta: {GameManager.Instance.Game.UniverseModel.UniversalTimeDelta}");
+                    GUILayout.Label($"UnityTimeDelta: {Time.fixedDeltaTime}");
+                    
+                    
                     //GUILayout.Label($"Camera pitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pitch}");
                     //GUILayout.Label($"Camera roll: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.roll}");
                     //GUILayout.Label($"Camera pan: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pan}");
