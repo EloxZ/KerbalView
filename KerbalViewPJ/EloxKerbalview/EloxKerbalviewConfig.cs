@@ -7,7 +7,6 @@ namespace EloxKerbalview
     [ModConfig]
     public class EloxKerbalviewConfig
     {
-         [ConfigField("up")] [ConfigDefaultValue(15)] public double up;
-         [ConfigField("forward")] [ConfigDefaultValue(-15)] public double forward;
+        // TODO: Config
     }
 }
