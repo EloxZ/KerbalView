@@ -32,6 +32,7 @@ namespace EloxKerbalview
         KSP.Sim.GimbalState savedGlimbal;
         double lastKerbalHeading, lastKerbalRoll, lastKerbalPitch;
         KSP.Sim.CameraMode savedCameraMode;
+        float currentVelocity;
         Vector3 rotationDistance;
         double lastHeading = -1;
         static double headingDifferenceRatio = 10000;
@@ -41,25 +42,27 @@ namespace EloxKerbalview
         static float cameraFOV = 90;
         float timerRotation = 0.1f;
         static Vector3 currentCameraVelocity = Vector3.zero;
-        float smoothTime = 0.001f;
+        static float smoothTime = 0.1f;
         float lastKerbalYRotation;
         bool rotatedLastFrame = false;
         double lastTime;
         private Camera currentCamera;
         static float cameraForwardOffset = 10;
         static float cameraUpOffset = 12;
-        double minDistance, maxDistance, minFov, maxFov, defaultFOV, defaultDistance;
+
         string statusMsg = "Initialized";
-        public override void Initialize() {
+        public override void OnInitialized() {
             Logger.Info("KerbalView is initialized");
 
             if (loaded) {
                 Destroy(this);
             }
-            loaded = true;
 
-            base.Initialize();
-            
+            loaded = true;
+        }
+
+        void Start() {
+            firstPersonEnabled = false;
         }
 
         void Awake() {
@@ -78,14 +81,19 @@ namespace EloxKerbalview
 
             if (gameChangedCamera()) disableFirstPerson();
             if (isFirstPersonViewEnabled()) updateStars();
+            
         }
 
         void updateStars() {
             var movement = currentCamera.transform.rotation.eulerAngles.y - lastKerbalYRotation;
             lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
 
-            skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, skyCamera.transform.eulerAngles.y + movement, currentCamera.transform.eulerAngles.z);
-            scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, skyCamera.transform.eulerAngles.y + movement, currentCamera.transform.eulerAngles.z);
+            var targetY = skyCamera.transform.eulerAngles.y + movement;
+            
+            skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
+            // Just saving this, TOFIX: Celestial bodies shake
+            // var smoothTarget = Mathf.SmoothDampAngle(scaledCamera.transform.eulerAngles.y, targetY, ref currentVelocity, smoothTime);
+            scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
         }
 
         bool gameChangedCamera() {
@@ -96,65 +104,80 @@ namespace EloxKerbalview
             // Take control of the camera
             GameManager.Instance.Game.CameraManager.DisableInput();
 
-            currentCamera = Camera.main;
+            try {
+                currentCamera = Camera.main;
 
-            // Get SkyBox and Scaled camera
-            foreach (Camera c in Camera.allCameras) {
-                if (c.gameObject.name == "FlightCameraSkybox_Main") {
-                    skyCamera = c;
-                } else if (c.gameObject.name == "FlightCameraScaled_Main") { 
-                    scaledCamera = c;
+                // Get SkyBox and Scaled camera
+                foreach (Camera c in Camera.allCameras) {
+                    if (c.gameObject.name == "FlightCameraSkybox_Main") {
+                        skyCamera = c;
+                    } else if (c.gameObject.name == "FlightCameraScaled_Main") { 
+                        scaledCamera = c;
+                    }
                 }
+
+                // Save config
+                savedParent = currentCamera.transform.parent;
+                savedRotation = currentCamera.transform.localRotation;
+                savedPosition = currentCamera.transform.localPosition;
+
+                savedFov = currentCamera.fieldOfView;
+                savedNearClip = currentCamera.nearClipPlane;
+
+                // Camera config
+                currentCamera.fieldOfView = cameraFOV;
+                currentCamera.nearClipPlane = 0.01f*cameraNearClipPlane;
+
+                // Current sky deviation caused by time
+                var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
+
+                // Anchor camera to our little friend
+                currentCamera.transform.parent = kerbalBehavior.transform;
+                currentCamera.transform.localRotation = Quaternion.identity;
+                var targetPosition = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;
+                currentCamera.transform.position = targetPosition;
+                
+                // Sync cameras and desync by time
+                skyCamera.transform.rotation = currentCamera.transform.rotation;
+                scaledCamera.transform.rotation = currentCamera.transform.rotation;
+                skyCamera.transform.eulerAngles += new Vector3(0,time,0);
+                scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
+
+                lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
+
+                firstPersonEnabled = true;
+            } catch (Exception exception) {
+                // For unknown error cases
+                Logger.Info(exception.Message);
+                GameManager.Instance.Game.CameraManager.EnableInput();
             }
 
-            // Save config
-            savedParent = currentCamera.transform.parent;
-            savedRotation = currentCamera.transform.localRotation;
-            savedPosition = currentCamera.transform.localPosition;
-
-            savedFov = currentCamera.fieldOfView;
-            savedNearClip = currentCamera.nearClipPlane;
-
-            // Camera config
-            currentCamera.fieldOfView = cameraFOV;
-            currentCamera.nearClipPlane = 0.01f*cameraNearClipPlane;
-
-            // Current sky deviation caused by time
-            var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
-
-            // Anchor camera to our little friend
-            currentCamera.transform.parent = kerbalBehavior.transform;
-            currentCamera.transform.localRotation = Quaternion.identity;
-            var targetPosition = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;
-            currentCamera.transform.position = targetPosition;
             
-            // Sync cameras and desync by time
-            skyCamera.transform.rotation = currentCamera.transform.rotation;
-            scaledCamera.transform.rotation = currentCamera.transform.rotation;
-            skyCamera.transform.eulerAngles += new Vector3(0,time,0);
-            scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
-
-            lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
-
-            firstPersonEnabled = true;
         }
 
         void disableFirstPerson() {
-            var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
+            // To avoid NullRefs
+            if (currentCamera && skyCamera && scaledCamera) {
+                var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
 
-            // Revert changes
-            currentCamera.transform.parent = savedParent;
-            currentCamera.transform.localPosition = savedPosition;
-            currentCamera.transform.localRotation = savedRotation;
+                // Revert changes
+                currentCamera.transform.parent = savedParent;
+                currentCamera.transform.localPosition = savedPosition;
+                currentCamera.transform.localRotation = savedRotation;
 
-            // Sync cameras and desync by time
-            skyCamera.transform.rotation = currentCamera.transform.rotation;
-            scaledCamera.transform.rotation = currentCamera.transform.rotation;
-            skyCamera.transform.eulerAngles += new Vector3(0,time,0);
-            scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
+                // Sync cameras and desync by time
+                skyCamera.transform.rotation = currentCamera.transform.rotation;
+                scaledCamera.transform.rotation = currentCamera.transform.rotation;
+                skyCamera.transform.eulerAngles += new Vector3(0,time,0);
+                scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
 
-            currentCamera.nearClipPlane = savedNearClip;
-            currentCamera.fieldOfView = savedFov;
+                // Reset local rotations (tends to variate a bit with movement)
+                skyCamera.transform.localRotation = Quaternion.identity;
+                scaledCamera.transform.localRotation = Quaternion.identity;
+
+                currentCamera.nearClipPlane = savedNearClip;
+                currentCamera.fieldOfView = savedFov;
+            }
             
             GameManager.Instance.Game.CameraManager.EnableInput();
 
@@ -204,11 +227,24 @@ namespace EloxKerbalview
                     //GUILayout.Label($"Position: {kerbalBehavior.transform.position}");
                     //GUILayout.Label($"Rotation: {kerbalBehavior.transform.rotation}");
                     //GUILayout.Label($"Euler Angles: {kerbalBehavior.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Main: {Camera.main.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Skybox: {skyCameraDeb.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Scaled: {scaledCameraDeb.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"timeDelta: {GameManager.Instance.Game.UniverseModel.UniversalTimeDelta}");
-                    GUILayout.Label($"UnityTimeDelta: {Time.fixedDeltaTime}");
+                    GUILayout.Label($"Main Pos: {Camera.main.transform.position}");
+                    GUILayout.Label($"Skybox Pos: {skyCameraDeb.transform.position}");
+                    GUILayout.Label($"Scaled Pos: {scaledCameraDeb.transform.position}");
+
+                    GUILayout.Label($"Main Rot: {Camera.main.transform.rotation.eulerAngles}");
+                    GUILayout.Label($"Skybox Rot: {skyCameraDeb.transform.rotation.eulerAngles}");
+                    GUILayout.Label($"Scaled Rot: {scaledCameraDeb.transform.rotation.eulerAngles}");
+
+                    GUILayout.Label($"Main Parent: {Camera.main.transform.parent.name}");
+                    GUILayout.Label($"Skybox Parent: {skyCameraDeb.transform.parent.name}");
+                    GUILayout.Label($"Scaled Parent: {scaledCameraDeb.transform.parent.name}");
+
+                    GUILayout.Label($"Main LocalRot: {Camera.main.transform.localRotation.eulerAngles}");
+                    GUILayout.Label($"Skybox LocalRot: {skyCameraDeb.transform.localRotation.eulerAngles}");
+                    GUILayout.Label($"Scaled LocalRot: {scaledCameraDeb.transform.localRotation.eulerAngles}");
+                    
+                    
+                    GUILayout.Label($"Current time variation: {skyCameraDeb.transform.rotation.eulerAngles.y - Camera.main.transform.rotation.eulerAngles.y}");
                     
                     
                     //GUILayout.Label($"Camera pitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pitch}");
