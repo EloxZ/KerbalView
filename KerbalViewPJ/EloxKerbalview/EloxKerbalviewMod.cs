@@ -29,13 +29,6 @@ namespace EloxKerbalview
         float savedFov;
         float savedNearClip;
 
-        //static float smoothTime = 0.1f;
-        //float currentVelocity;
-        //static int WINDOW_WIDTH = 500;
-        //static int WINDOW_HEIGHT = 1000;
-        //Rect windowRect;
-        //bool drawUI = false;
-
         public override void OnInitialized() {
             Logger.Info("KerbalView is initialized");
 
@@ -70,8 +63,6 @@ namespace EloxKerbalview
             var targetY = skyCamera.transform.eulerAngles.y + movement;
             
             skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
-            // Just saving this, TOFIX: Celestial bodies shake
-            // var smoothTarget = Mathf.SmoothDampAngle(scaledCamera.transform.eulerAngles.y, targetY, ref currentVelocity, smoothTime);
             scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
         }
 
