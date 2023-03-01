@@ -52,7 +52,7 @@ namespace EloxKerbalview
                 }
             }
 
-            if (gameChangedCamera()) disableFirstPerson();
+            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
             if (isFirstPersonViewEnabled()) updateStars();
         }
 
@@ -67,9 +67,10 @@ namespace EloxKerbalview
         }
 
         bool gameChangedCamera() {
-            return currentCamera && currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto;
+            return currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || kerbal == null;
+            
         }
-
+        
         void enableFirstPerson() {
             // Take control of the camera
             GameManager.Instance.Game.CameraManager.DisableInput();
