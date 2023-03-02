@@ -7,6 +7,6 @@ namespace EloxKerbalview
     [ModConfig]
     public class EloxKerbalviewConfig
     {
-        // TODO: Config
+    
     }
 }
