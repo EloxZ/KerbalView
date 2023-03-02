@@ -91,8 +91,6 @@ namespace EloxKerbalview
             var targetY = skyCamera.transform.eulerAngles.y + movement;
             
             skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
-            // Just saving this, TOFIX: Celestial bodies shake
-            // var smoothTarget = Mathf.SmoothDampAngle(scaledCamera.transform.eulerAngles.y, targetY, ref currentVelocity, smoothTime);
             scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
         }
 
@@ -105,6 +103,7 @@ namespace EloxKerbalview
             GameManager.Instance.Game.CameraManager.DisableInput();
 
             try {
+                kerbalBehavior.gameObject.AddComponent<OnDestroyHandler>();
                 currentCamera = Camera.main;
 
                 // Get SkyBox and Scaled camera
@@ -214,8 +213,12 @@ namespace EloxKerbalview
                 if (GameManager.Instance.Game) {
                     //Camera skyCameraDeb = null, scaledCameraDeb = null;
 
-                    foreach (Camera c in Camera.allCameras) {
-                        GUILayout.Label($"Camera: {c.transform.name} {c.transform.parent.name}");
+                    LODBehavior[] myItems = FindObjectsOfType(typeof(LODBehavior)) as LODBehavior[];
+                    GUILayout.Label($"Found " + myItems.Length + " instances with this script attached");
+                    foreach(LODBehavior item in myItems)
+                    {
+                        GUILayout.Label($"Script gameobject name: {item.gameObject.name}");
+                        GUILayout.Label($"Update bounds : {item.alwaysUpdateBounds}");
                     }
                     
                     GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
@@ -242,6 +245,9 @@ namespace EloxKerbalview
                     
                    // GUILayout.Label($"Current time variation: {skyCameraDeb.transform.rotation.eulerAngles.y - Camera.main.transform.rotation.eulerAngles.y}");
                     
+
+                    GUILayout.Label($"Culling: {KerbalCullingManager.Singleton.gameObject.name}");
+                    GUILayout.Label($"Culling enabled: {KerbalCullingManager.Singleton.enabled}");
                     
                     //GUILayout.Label($"Camera pitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pitch}");
                     //GUILayout.Label($"Camera roll: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.roll}");
@@ -332,8 +338,33 @@ namespace EloxKerbalview
             GUI.DragWindow(new Rect(0, 0, 10000, 500));
 
         }
+
+        private class OnDestroyHandler : MonoBehaviour {
+            void OnDestroy() {
+                var physicsCamera = GameObject.Find("FlightCameraPhysics_Main");
+                physicsCamera.transform.parent = GameObject.Find("[PhysicsSpace] FlightCamera Assembly").transform;
+                KerbalCullingManager.Singleton.enabled = true;
+                physicsCamera.GetComponent<Camera>().enabled = true;
+            }
+        }
     }
 
+/*
+                    
+      
+
+                    if (kerbalBehavior) {
+                Logger.Info("K " + kerbalBehavior.gameObject.name);
+                if (kerbalBehavior.gameObject.transform.parent) Logger.Info("P " + kerbalBehavior.gameObject.transform.parent.name);
+            } else {
+                Logger.Info("No kerbal behavior");
+            }
+            if (Camera.main) {
+                Logger.Info(Camera.main.name);
+                if (Camera.main.transform.parent) Logger.Info("PC " + Camera.main.transform.parent.name);
+            }
     
+
+    */
 }
 
