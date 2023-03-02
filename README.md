@@ -12,7 +12,7 @@ Allows a glimpse of the galaxy through the eyes of kerbals.
 # Known issues
 - Camera clips with Kerbal when they start an idle animation. I could hide Kerbal Model, but the purpose is to be as immersive as it can be.
 - Bad controls
-- I think I solved every bug I got into, feel free to comment me your issues.
+- Camera bug when trying to board vessel in first person view. Press M twice to solve it.
 
 # Next feautures
 - Revamped controls on land and space (Jetpack)
