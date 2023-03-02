@@ -44,6 +44,9 @@ namespace EloxKerbalview
         }
 
         void Update() {
+            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
+            if (isFirstPersonViewEnabled()) updateStars();
+
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && findKerbal() && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
                 if (!isFirstPersonViewEnabled()) {
                     enableFirstPerson();
@@ -52,8 +55,7 @@ namespace EloxKerbalview
                 }
             }
 
-            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
-            if (isFirstPersonViewEnabled()) updateStars();
+            
         }
 
         void updateStars() {
@@ -118,7 +120,7 @@ namespace EloxKerbalview
                 firstPersonEnabled = true;
             } catch (Exception exception) {
                 // For unknown error cases
-                Logger.Info(exception.Message);
+                Logger.Error(exception.Message);
                 GameManager.Instance.Game.CameraManager.EnableInput();
             }
 
@@ -129,7 +131,7 @@ namespace EloxKerbalview
             // To avoid NullRefs
             if (currentCamera && skyCamera && scaledCamera) {
                 var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
-
+                
                 // Revert changes
                 currentCamera.transform.parent = savedParent;
                 currentCamera.transform.localPosition = savedPosition;
@@ -164,6 +166,8 @@ namespace EloxKerbalview
             kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
             return kerbal != null && kerbalBehavior != null;
         }
+
+
     }
 }
 
