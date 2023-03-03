@@ -49,6 +49,8 @@ namespace EloxKerbalview
         private Camera currentCamera;
         static float cameraForwardOffset = 10;
         static float cameraUpOffset = 12;
+        static GameObject helmetLights;
+        float range = 20, spotAngle = 45, lightIntesity = 100;
 
         string statusMsg = "Initialized";
         public override void OnInitialized() {
@@ -69,9 +71,11 @@ namespace EloxKerbalview
             windowRect = new Rect((Screen.width * 0.85f) - (WINDOW_WIDTH / 2), (Screen.height / 2) - (WINDOW_HEIGHT / 2), 0, 0);
         }
   
-        void Update() {            
+        void Update() {
+            if (kerbal == null) findKerbal();
+            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha4)) turnOnHelmetLights();
             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha3)) drawUI = !drawUI;
-            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && findKerbal() && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
+            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
                 if (!isFirstPersonViewEnabled()) {
                     enableFirstPerson();
                 } else {
@@ -82,6 +86,49 @@ namespace EloxKerbalview
             if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
             if (isFirstPersonViewEnabled()) updateStars();
             
+        }
+
+        void turnOnHelmetLights() {
+            if (helmetLights) {
+                Destroy(helmetLights);
+            } else if (kerbalBehavior) {
+                helmetLights = new GameObject("EVA_HelmetLight");
+                GameObject helmetLightLeft = new GameObject("EVA_HelmetLightLeft");
+                GameObject helmetLightRight = new GameObject("EVA_HelmetLightRight");
+
+                helmetLights.transform.parent = kerbalBehavior.transform;
+                helmetLightLeft.transform.parent = helmetLights.transform;
+                helmetLightRight.transform.parent = helmetLights.transform;
+
+                helmetLights.transform.localPosition = new Vector3(0, 0.12f, 0.1f);
+                helmetLightLeft.transform.localPosition = new Vector3(0.3f, 0, 0);
+                helmetLightRight.transform.localPosition = new Vector3(-0.3f, 0, 0);
+
+                helmetLights.transform.localRotation = Quaternion.identity;
+                helmetLightLeft.transform.localEulerAngles = new Vector3(8, 5, 0);
+                helmetLightRight.transform.localEulerAngles = new Vector3(8, -5, 0);
+
+                Light insideLight = helmetLights.AddComponent<Light>();
+                Light lightCompLeft = helmetLightLeft.AddComponent<Light>();
+                Light lightCompRight = helmetLightRight.AddComponent<Light>();
+
+                lightCompLeft.type = LightType.Spot;
+                lightCompRight.type = LightType.Spot;
+
+                lightCompLeft.color = Color.white;
+                lightCompLeft.range = range;
+                lightCompLeft.spotAngle = spotAngle;
+                lightCompLeft.intensity = 0.01f * lightIntesity;
+
+                lightCompRight.color = Color.white;
+                lightCompRight.range = range;
+                lightCompRight.spotAngle = spotAngle;
+                lightCompRight.intensity = 0.01f * lightIntesity;
+
+                insideLight.color = Color.white;
+                insideLight.intensity = 2;
+                insideLight.range = 0.5f;
+            }
         }
 
         void updateStars() {
@@ -103,7 +150,6 @@ namespace EloxKerbalview
             GameManager.Instance.Game.CameraManager.DisableInput();
 
             try {
-                kerbalBehavior.gameObject.AddComponent<OnDestroyHandler>();
                 currentCamera = Camera.main;
 
                 // Get SkyBox and Scaled camera
@@ -190,7 +236,12 @@ namespace EloxKerbalview
         bool findKerbal() {
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
             kerbal = (activeVessel != null && activeVessel.IsKerbalEVA && GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode)? activeVessel : null;
-            kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
+            if (kerbal != null) {
+                kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
+                KSP.Sim.Definitions.ModuleAction toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)turnOnHelmetLights);
+                kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction);
+            }
+            
             return kerbal != null && kerbalBehavior != null;
         }
 
@@ -213,20 +264,20 @@ namespace EloxKerbalview
                 if (GameManager.Instance.Game) {
                     //Camera skyCameraDeb = null, scaledCameraDeb = null;
 
-                    LODBehavior[] myItems = FindObjectsOfType(typeof(LODBehavior)) as LODBehavior[];
-                    GUILayout.Label($"Found " + myItems.Length + " instances with this script attached");
-                    foreach(LODBehavior item in myItems)
-                    {
-                        GUILayout.Label($"Script gameobject name: {item.gameObject.name}");
-                        GUILayout.Label($"Update bounds : {item.alwaysUpdateBounds}");
-                    }
+                    //LODBehavior[] myItems = FindObjectsOfType(typeof(LODBehavior)) as LODBehavior[];
+                    //GUILayout.Label($"Found " + myItems.Length + " instances with this script attached");
+                    //foreach(LODBehavior item in myItems)
+                    //{
+                    //    GUILayout.Label($"Script gameobject name: {item.gameObject.name}");
+                    //    GUILayout.Label($"Update bounds : {item.alwaysUpdateBounds}");
+                    //}
                     
-                    GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
+                    //GUILayout.Label($"Active Vessel: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().DisplayName}");
                     //GUILayout.Label($"Is Kerbal: {GameManager.Instance.Game.ViewController.GetActiveSimVessel().IsKerbalEVA}");
                     //GUILayout.Label($"Position: {kerbalBehavior.transform.position}");
                     //GUILayout.Label($"Rotation: {kerbalBehavior.transform.rotation}");
                     //GUILayout.Label($"Euler Angles: {kerbalBehavior.transform.rotation.eulerAngles}");
-                    GUILayout.Label($"Main Pos: {Camera.main.transform.position}");
+                    //GUILayout.Label($"Main Pos: {Camera.main.transform.position}");
                     //GUILayout.Label($"Skybox Pos: {skyCameraDeb.transform.position}");
                     //GUILayout.Label($"Scaled Pos: {scaledCameraDeb.transform.position}");
 
@@ -246,15 +297,15 @@ namespace EloxKerbalview
                    // GUILayout.Label($"Current time variation: {skyCameraDeb.transform.rotation.eulerAngles.y - Camera.main.transform.rotation.eulerAngles.y}");
                     
 
-                    GUILayout.Label($"Culling: {KerbalCullingManager.Singleton.gameObject.name}");
-                    GUILayout.Label($"Culling enabled: {KerbalCullingManager.Singleton.enabled}");
+                    //GUILayout.Label($"Culling: {KerbalCullingManager.Singleton.gameObject.name}");
+                    //GUILayout.Label($"Culling enabled: {KerbalCullingManager.Singleton.enabled}");
                     
                     //GUILayout.Label($"Camera pitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pitch}");
                     //GUILayout.Label($"Camera roll: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.roll}");
                     //GUILayout.Label($"Camera pan: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.pan}");
                     //GUILayout.Label($"Camera localHeading: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.localHeading}");
                     //GUILayout.Label($"Camera localPitch: {GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.GimbalState.localPitch}");
-                    GUILayout.Label($"Unity camera : {Camera.main.transform.name}");
+                    //GUILayout.Label($"Unity camera : {Camera.main.transform.name}");
                     //GUILayout.Label($"Unity camera rotation: {Camera.main.transform.rotation}");
                     //GUILayout.Label($"Unity camera rotation Euler: {Camera.main.transform.rotation.eulerAngles}");
                     //GUILayout.Label($"Unity camera rotation Euler: {Camera.main.transform.parent.rotation.eulerAngles}");
@@ -286,17 +337,37 @@ namespace EloxKerbalview
                 Logger.Info(exception.ToString());
             }
 
-            GUILayout.Label($"Status: {statusMsg}");
-            GUILayout.Label($"First Person Enabled: {isFirstPersonViewEnabled()}");
-            GUILayout.Label($"Main camera: {Camera.main.name}");
-            if (currentCamera) GUILayout.Label($"Current camera: {currentCamera.name}{" "}{currentCamera.enabled}");
-            if (kerbalCameraObject) GUILayout.Label($"My camera: {kerbalCameraObject.GetComponent<Camera>().name}{" "}{kerbalCameraObject.GetComponent<Camera>().enabled}");
+            //GUILayout.Label($"Status: {statusMsg}");
+            //GUILayout.Label($"First Person Enabled: {isFirstPersonViewEnabled()}");
+            //GUILayout.Label($"Main camera: {Camera.main.name}");
+            //if (currentCamera) GUILayout.Label($"Current camera: {currentCamera.name}{" "}{currentCamera.enabled}");
+            //if (kerbalCameraObject) GUILayout.Label($"My camera: {kerbalCameraObject.GetComponent<Camera>().name}{" "}{kerbalCameraObject.GetComponent<Camera>().enabled}");
             
             //GUILayout.BeginHorizontal();
             //GUILayout.Label("Heading Difference Ratio: ", GUILayout.Width(WINDOW_WIDTH / 2));
             //var headingDifferenceRatioString = GUILayout.TextField(headingDifferenceRatio.ToString());
             //double.TryParse(headingDifferenceRatioString, out headingDifferenceRatio);
             //GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Light intensity: ", GUILayout.Width(WINDOW_WIDTH / 2));
+            var lightIntesityString = GUILayout.TextField(lightIntesity.ToString());
+            float.TryParse(lightIntesityString, out lightIntesity);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("SpotAngle: ", GUILayout.Width(WINDOW_WIDTH / 2));
+            var spotAngleString = GUILayout.TextField(spotAngle.ToString());
+            float.TryParse(spotAngleString, out spotAngle);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Range: ", GUILayout.Width(WINDOW_WIDTH / 2));
+            var rangeString = GUILayout.TextField(range.ToString());
+            float.TryParse(rangeString, out range);
+            GUILayout.EndHorizontal();
+
+
 
             //GUILayout.BeginHorizontal();
             //GUILayout.Label("Forward offset: ", GUILayout.Width(WINDOW_WIDTH / 2));

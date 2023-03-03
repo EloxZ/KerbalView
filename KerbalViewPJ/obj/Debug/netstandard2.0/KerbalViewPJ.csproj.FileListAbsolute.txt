@@ -72,7 +72,6 @@ c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\Unity.TextMesh
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\Assembly-CSharp-firstpass.dll
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\AK.Wwise.Unity.API.WwiseTypes.dll
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\AK.Wwise.Unity.API.dll
-c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\Unity.InputSystem.dll
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\Unity.Collections.dll
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\ShapesRuntime.dll
 c:\Users\EloyB\KerbalViewPJ\KerbalViewPJ\bin\Debug\netstandard2.0\Unity.Timeline.dll

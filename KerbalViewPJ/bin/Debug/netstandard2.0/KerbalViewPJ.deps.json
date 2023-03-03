@@ -557,14 +557,6 @@
           }
         }
       },
-      "Unity.InputSystem/1.3.0.0": {
-        "runtime": {
-          "Unity.InputSystem.dll": {
-            "assemblyVersion": "1.3.0.0",
-            "fileVersion": "1.3.0.0"
-          }
-        }
-      },
       "Unity.Collections/0.0.0.0": {
         "runtime": {
           "Unity.Collections.dll": {
@@ -1121,11 +1113,6 @@
       "sha512": ""
     },
     "AK.Wwise.Unity.API/0.0.0.0": {
-      "type": "reference",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "Unity.InputSystem/1.3.0.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""
