@@ -2,7 +2,7 @@
 Allows a glimpse of the galaxy through the eyes of kerbals.
 
 # How it works
-- [New] EVA Helmet Lights
+- [New] EVA Helmet Lights. Press [Alt] + [L] or Toggle Helmet Lights in Kerbal menu.
 - Press [Alt] + [2] in Flight Camera Mode Auto to get into First Person View. Press again or change camera mode with V to exit.
 - Currently is using the native controls and the camera is locked.
     - [A] and [D] to rotate
