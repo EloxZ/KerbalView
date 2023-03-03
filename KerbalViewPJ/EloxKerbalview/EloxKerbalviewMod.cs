@@ -29,6 +29,10 @@ namespace EloxKerbalview
         float savedFov;
         float savedNearClip;
 
+        static GameObject helmetLights;
+        KSP.Sim.Definitions.ModuleAction toggleLightsAction;
+        static float range = 20, spotAngle = 45, lightIntesity = 100;
+
         public override void OnInitialized() {
             Logger.Info("KerbalView is initialized");
 
@@ -41,21 +45,70 @@ namespace EloxKerbalview
 
         void Start() {
             firstPersonEnabled = false;
+            toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)toggleHelmetLights);
         }
 
         void Update() {
-            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
-            if (isFirstPersonViewEnabled()) updateStars();
+            if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode) {
+                if (kerbalBehavior != null) {
+                    if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
+                    if (isFirstPersonViewEnabled()) updateStars();
 
-            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && findKerbal() && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
-                if (!isFirstPersonViewEnabled()) {
-                    enableFirstPerson();
+                    if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
+                    if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
+                        if (!isFirstPersonViewEnabled()) {
+                            enableFirstPerson();
+                        } else {
+                            disableFirstPerson();
+                        }
+                    }
                 } else {
-                    disableFirstPerson();
+                    findKerbal();
                 }
             }
+        }
 
-            
+        void toggleHelmetLights() {
+            if (helmetLights) {
+                Destroy(helmetLights);
+            } else if (kerbalBehavior) {
+                helmetLights = new GameObject("EVA_HelmetLight");
+                GameObject helmetLightLeft = new GameObject("EVA_HelmetLightLeft");
+                GameObject helmetLightRight = new GameObject("EVA_HelmetLightRight");
+
+                helmetLights.transform.parent = kerbalBehavior.transform;
+                helmetLightLeft.transform.parent = helmetLights.transform;
+                helmetLightRight.transform.parent = helmetLights.transform;
+
+                helmetLights.transform.localPosition = new Vector3(0, 0.12f, 0.1f);
+                helmetLightLeft.transform.localPosition = new Vector3(0.3f, 0, 0);
+                helmetLightRight.transform.localPosition = new Vector3(-0.3f, 0, 0);
+
+                helmetLights.transform.localRotation = Quaternion.identity;
+                helmetLightLeft.transform.localEulerAngles = new Vector3(8, 5, 0);
+                helmetLightRight.transform.localEulerAngles = new Vector3(8, -5, 0);
+
+                Light insideLight = helmetLights.AddComponent<Light>();
+                Light lightCompLeft = helmetLightLeft.AddComponent<Light>();
+                Light lightCompRight = helmetLightRight.AddComponent<Light>();
+
+                lightCompLeft.type = LightType.Spot;
+                lightCompRight.type = LightType.Spot;
+
+                lightCompLeft.color = Color.white;
+                lightCompLeft.range = range;
+                lightCompLeft.spotAngle = spotAngle;
+                lightCompLeft.intensity = 0.01f * lightIntesity;
+
+                lightCompRight.color = Color.white;
+                lightCompRight.range = range;
+                lightCompRight.spotAngle = spotAngle;
+                lightCompRight.intensity = 0.01f * lightIntesity;
+
+                insideLight.color = Color.white;
+                insideLight.intensity = 2;
+                insideLight.range = 0.5f;
+            }
         }
 
         void updateStars() {
@@ -153,6 +206,9 @@ namespace EloxKerbalview
             
             GameManager.Instance.Game.CameraManager.EnableInput();
 
+            kerbal = null;
+            kerbalBehavior = null;
+
             firstPersonEnabled = false;
         }
 
@@ -162,9 +218,13 @@ namespace EloxKerbalview
 
         bool findKerbal() {
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
-            kerbal = (activeVessel != null && activeVessel.IsKerbalEVA && GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode)? activeVessel : null;
-            kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
-            return kerbal != null && kerbalBehavior != null;
+            kerbal = (activeVessel != null && activeVessel.IsKerbalEVA )? activeVessel : null;
+            if (kerbal != null) {
+                kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
+                kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction);
+            }
+            
+            return kerbalBehavior != null;
         }
 
 
