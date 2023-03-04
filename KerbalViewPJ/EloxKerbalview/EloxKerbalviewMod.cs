@@ -1,14 +1,21 @@
 using UnityEngine;
-using SpaceWarp.API.Mods;
+using KSP;
 using KSP.Game;
+using SpaceWarp;
+using SpaceWarp.UI;
+using SpaceWarp.API.UI.Appbar;
+using SpaceWarp.API.Mods;
+using BepInEx;
 
 namespace EloxKerbalview
 {
-    [MainMod]
-    public class EloxKerbalviewMod : Mod
+    [BepInPlugin("com.Elox.EloxKerbalView", "EloxKerbalView", "1.1.0")]
+    [BepInDependency(SpaceWarpPlugin.ModGuid, SpaceWarpPlugin.ModVer)]
+    public class EloxKerbalviewMod : BaseSpaceWarpPlugin
     {
         static bool loaded = false;
         static bool firstPersonEnabled = false;
+        private static EloxKerbalviewMod Instance { get; set; }
 
         KSP.Sim.impl.VesselComponent kerbal = null;
         KSP.Sim.impl.VesselBehavior kerbalBehavior = null;
@@ -34,7 +41,7 @@ namespace EloxKerbalview
         static float range = 20, spotAngle = 45, lightIntesity = 100;
 
         public override void OnInitialized() {
-            Logger.Info("KerbalView is initialized");
+            Logger.LogInfo("KerbalView is initialized");
 
             if (loaded) {
                 Destroy(this);
@@ -43,13 +50,17 @@ namespace EloxKerbalview
             loaded = true;
         }
 
-        void Start() {
+        void Awake() {
             firstPersonEnabled = false;
             toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)toggleHelmetLights);
         }
 
         void Update() {
-            if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode) {
+
+            if (loaded) { 
+            GameStateConfiguration gameStateConfiguration = GameManager.Instance.Game.GlobalGameState.GetGameState();
+         
+            if (gameStateConfiguration.IsFlightMode){
                 if (kerbalBehavior != null) {
                     if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
                     if (isFirstPersonViewEnabled()) updateStars();
@@ -65,6 +76,7 @@ namespace EloxKerbalview
                 } else {
                     findKerbal();
                 }
+            }
             }
         }
 
@@ -173,7 +185,7 @@ namespace EloxKerbalview
                 firstPersonEnabled = true;
             } catch (Exception exception) {
                 // For unknown error cases
-                Logger.Error(exception.Message);
+                Logger.LogError(exception.Message);
                 GameManager.Instance.Game.CameraManager.EnableInput();
             }
 
