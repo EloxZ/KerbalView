@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33424.131
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KerbalViewPJ", "KerbalViewPJ\KerbalViewPJ.csproj", "{983C34FF-8FC8-4097-8FAE-5C77500E362F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{983C34FF-8FC8-4097-8FAE-5C77500E362F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{983C34FF-8FC8-4097-8FAE-5C77500E362F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{983C34FF-8FC8-4097-8FAE-5C77500E362F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{983C34FF-8FC8-4097-8FAE-5C77500E362F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BC4E0F3E-20AF-4713-A7A6-13C9A5C7FD7A}
+	EndGlobalSection
+EndGlobal

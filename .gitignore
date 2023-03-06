@@ -2,3 +2,8 @@
 .fake
 Debug*
 obj*
+external_dlls/*.dll
+.vs
+KerbalViewPJ/.vs
+KerbalViewPJ/bin/*
+*.pdb
