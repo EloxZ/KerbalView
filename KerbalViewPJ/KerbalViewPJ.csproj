@@ -9,6 +9,8 @@
   <ItemGroup>
     <Reference Include="..\external_dlls\SpaceWarp.dll" />
     <Reference Include="..\external_dlls\UnityEngine.dll" />
+    <Reference Include="..\external_dlls\UnityEngine.UI.dll" />
+    <Reference Include="..\external_dlls\UnityEngine.AnimationModule.dll" />
     <Reference Include="..\external_dlls\UnityEngine.IMGUIModule.dll" />
     <Reference Include="..\external_dlls\UnityEngine.CoreModule.dll" />
     <Reference Include="..\external_dlls\UnityEngine.PhysicsModule.dll" />
@@ -18,7 +20,10 @@
     <Reference Include="..\external_dlls\System.dll" />
     <Reference Include="..\external_dlls\System.Core.dll" />
     <Reference Include="..\external_dlls\System.Data.dll" />
-	<PackageReference Include="BepInEx.BaseLib" Version="5.4.21" Publicize="true" /> 
+    <PackageReference Include="BepInEx.BaseLib" Version="5.4.21" Publicize="true" />
     <Content Include="EloxKerbalview\EloxKerbalviewMod.cs" />
+    <Content Include="obj\KerbalViewPJ.csproj.nuget.g.targets" />
+    <Content Include="obj\project.assets.json" />
+    <Content Include="obj\KerbalViewPJ.csproj.nuget.dgspec.json" />
   </ItemGroup>
 </Project>

@@ -5,10 +5,11 @@ using SpaceWarp;
 using SpaceWarp.UI;
 using SpaceWarp.API.UI.Appbar;
 using SpaceWarp.API.Mods;
+using SpaceWarp.API.UI;
 using BepInEx;
 
 namespace EloxKerbalview
-{
+{   
     [BepInPlugin("com.Elox.EloxKerbalView", "EloxKerbalView", "1.1.0")]
     [BepInDependency(SpaceWarpPlugin.ModGuid, SpaceWarpPlugin.ModVer)]
     public class EloxKerbalviewMod : BaseSpaceWarpPlugin
@@ -18,7 +19,9 @@ namespace EloxKerbalview
         static bool firstPersonEnabled = false;
 
         KSP.Sim.impl.VesselComponent kerbal = null;
-        KSP.Sim.impl.VesselBehavior kerbalBehavior = null;
+        KSP.Sim.impl.VesselBehavior kerbalVesselBehavior = null;
+        KSP.Sim.impl.KerbalBehavior kerbalBehavior = null;
+        Sprite telescopeSprite;
         float lastKerbalYRotation;
 
         Camera currentCamera;
@@ -28,17 +31,21 @@ namespace EloxKerbalview
         Quaternion savedRotation;
         Transform savedParent;
 
-        static float cameraNearClipPlane = 8;
+        static float cameraNearClipPlane = 1;
         static float cameraFOV = 90;
-        static float cameraForwardOffset = 10;
-        static float cameraUpOffset = 12;
+        static float cameraForwardOffset = 190;
+        static float cameraUpOffset = 70;
 
         float savedFov;
         float savedNearClip;
 
-        static GameObject helmetLights;
+        static GameObject helmetLights, telescopeSight;
         KSP.Sim.Definitions.ModuleAction toggleLightsAction;
         static float range = 20, spotAngle = 45, lightIntesity = 100;
+        static bool cameraLocked = false;
+        static float currentCameraPitch = 0, maxCameraPitch = 40, currentCameraYaw = 0, maxCameraYaw = 40;
+        static int telescopeMode = 0;
+        static float sensitivity = 1;
 
         public override void OnInitialized() {
             Logger.LogInfo("KerbalView is initialized");
@@ -52,45 +59,151 @@ namespace EloxKerbalview
         {
             loaded = true; 
         }
+
         void Awake() {
             firstPersonEnabled = false;
+            telescopeMode = 0;
+            cameraLocked = false;
+            telescopeSprite = SpaceWarp.API.Assets.AssetManager.GetAsset<Sprite>($"{SpaceWarpMetadata.ModID}/images/telescopeMask.png");
             toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)toggleHelmetLights);
         }
 
         void Update() {
+            if (loaded) {
+                GameStateConfiguration gameStateConfiguration = GameManager.Instance.Game.GlobalGameState.GetGameState();
+                if (gameStateConfiguration.IsFlightMode) {
+                    if (kerbalVesselBehavior != null) {
+                        if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
+                        if (isFirstPersonViewEnabled()) {
+                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
+                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
+                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
 
-            if (loaded) { 
-            GameStateConfiguration gameStateConfiguration = GameManager.Instance.Game.GlobalGameState.GetGameState();
-         
-            if (gameStateConfiguration.IsFlightMode){
-                if (kerbalBehavior != null) {
-                    if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
-                    if (isFirstPersonViewEnabled()) updateStars();
+                            if (Input.GetKeyDown(KeyCode.Mouse1) || cameraLocked && Input.GetKeyDown(KeyCode.M)) toggleLockCamera();
+                            if (cameraLocked) handleCameraMovement();
 
-                    if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
-                    if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
-                        if (!isFirstPersonViewEnabled()) {
-                            enableFirstPerson();
-                        } else {
-                            disableFirstPerson();
+                            updateStars();
                         }
+
+                        if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
+                        if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
+                            if (!isFirstPersonViewEnabled()) {
+                                enableFirstPerson();
+                            } else {
+                                disableFirstPerson();
+                            }
+                        }
+                    } else {
+                        findKerbal();
                     }
-                } else {
-                    findKerbal();
                 }
             }
+        }
+
+        void toggleScopeSight() {
+            if (telescopeSight) {
+                Destroy(telescopeSight);
+            } else {
+                telescopeSight = new GameObject("TelescopeSight");
+                var image = telescopeSight.AddComponent<UnityEngine.UI.Image>();
+                image.sprite = telescopeSprite;
+                telescopeSight.transform.SetParent(GameObject.Find("Canvas")?.transform, false);
+                telescopeSight.transform.localScale = Vector3.one;
             }
         }
+
+        void setTelescope(int mode) {
+            if (mode == 0) {
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV);
+                GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 30;
+                telescopeMode = 0;
+                sensitivity = 1;
+                if (telescopeSight) toggleScopeSight();
+            } else if (mode == 1) {
+                GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 1;
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV/4);
+                telescopeMode = 1;
+                sensitivity = 0.5f;
+                if (!telescopeSight) toggleScopeSight();
+            }  else if (mode == 2) {
+                GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 1;
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV/20);
+                telescopeMode = 2;
+                sensitivity = 0.1f;
+                if (!telescopeSight) toggleScopeSight();
+            } else if (mode == 3) {
+                GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 1;
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV/80);
+                telescopeMode = 3;
+                sensitivity = 1/40f;
+                if (!telescopeSight) toggleScopeSight();
+            }
+        }
+
+        void handleCameraMovement() {
+            var movementX = Input.GetAxis("Mouse X");
+            var movementY = -Input.GetAxis("Mouse Y");
+
+            if (Input.GetAxis("Mouse ScrollWheel") < 0f) setTelescope(telescopeMode-1);
+            if (Input.GetAxis("Mouse ScrollWheel") > 0f) setTelescope(telescopeMode+1);
+
+            currentCameraYaw += movementX*sensitivity;
+            currentCameraPitch += movementY*sensitivity;
+        
+            if (telescopeMode > 0) {
+                if (currentCameraYaw > maxCameraYaw-10) currentCameraYaw = maxCameraYaw-10;
+                if (currentCameraYaw < -maxCameraYaw-10) currentCameraYaw = -maxCameraYaw-10;
+                if (currentCameraPitch > maxCameraPitch-10) currentCameraPitch = maxCameraPitch-10;
+                if (currentCameraPitch < -maxCameraPitch-10) currentCameraPitch = -maxCameraPitch-10;
+            } else {
+                if (currentCameraYaw > maxCameraYaw) currentCameraYaw = maxCameraYaw;
+                if (currentCameraYaw < -maxCameraYaw) currentCameraYaw = -maxCameraYaw;
+                if (currentCameraPitch > maxCameraPitch) currentCameraPitch = maxCameraPitch;
+                if (currentCameraPitch < -maxCameraPitch) currentCameraPitch = -maxCameraPitch;
+            }
+
+            currentCamera.transform.localEulerAngles = new Vector3(currentCameraPitch, currentCameraYaw, 0);
+        }
+
+        void lockCamera() {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+            currentCameraYaw = 0;
+            currentCameraPitch = 0;
+            currentCamera.transform.localEulerAngles = new Vector3(0, 0, 0);
+            cameraLocked = true;
+            GameManager.Instance.Game.InputManager.SetInputLock(KSP.Input.InputLocks.EVAInputDisabled);
+        }
+
+        void unlockCamera() {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            currentCameraYaw = 0;
+            currentCameraPitch = 0;
+            cameraLocked = false;
+            setTelescope(0);
+            GameManager.Instance.Game.InputManager.SetInputLock(KSP.Input.InputLocks.EVAInputEnabled);
+        }
+
+        void toggleLockCamera() {
+            if (cameraLocked) {
+                unlockCamera();
+                currentCamera.transform.localEulerAngles = new Vector3(0, 0, 0);
+            } else {
+                lockCamera();
+            }
+        }
+
 
         void toggleHelmetLights() {
             if (helmetLights) {
                 Destroy(helmetLights);
-            } else if (kerbalBehavior) {
+            } else if (kerbalVesselBehavior) {
                 helmetLights = new GameObject("EVA_HelmetLight");
                 GameObject helmetLightLeft = new GameObject("EVA_HelmetLightLeft");
                 GameObject helmetLightRight = new GameObject("EVA_HelmetLightRight");
 
-                helmetLights.transform.parent = kerbalBehavior.transform;
+                helmetLights.transform.parent = kerbalVesselBehavior.transform;
                 helmetLightLeft.transform.parent = helmetLights.transform;
                 helmetLightRight.transform.parent = helmetLights.transform;
 
@@ -126,7 +239,7 @@ namespace EloxKerbalview
         }
 
         void updateStars() {
-            var movement = currentCamera.transform.rotation.eulerAngles.y - lastKerbalYRotation;
+            var movement = currentCamera.transform.rotation.eulerAngles.y - lastKerbalYRotation ;
             lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
 
             var targetY = skyCamera.transform.eulerAngles.y + movement;
@@ -136,7 +249,7 @@ namespace EloxKerbalview
         }
 
         bool gameChangedCamera() {
-            return currentCamera != Camera.main || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal;
+            return currentCamera != Camera.main || currentCamera.enabled == false || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal;
         }
         
         void enableFirstPerson() {
@@ -164,16 +277,16 @@ namespace EloxKerbalview
                 savedNearClip = currentCamera.nearClipPlane;
 
                 // Camera config
-                currentCamera.fieldOfView = cameraFOV;
-                currentCamera.nearClipPlane = 0.01f*cameraNearClipPlane;
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(cameraFOV);
+                currentCamera.nearClipPlane = 0.001f*cameraNearClipPlane;
 
                 // Current sky deviation caused by time
                 var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
 
                 // Anchor camera to our little friend
-                currentCamera.transform.parent = kerbalBehavior.transform;
+                currentCamera.transform.parent = kerbalVesselBehavior.transform;
                 currentCamera.transform.localRotation = Quaternion.identity;
-                var targetPosition = kerbalBehavior.transform.position + 0.01f*cameraUpOffset*kerbalBehavior.transform.up + 0.01f*cameraForwardOffset*kerbalBehavior.transform.forward;
+                var targetPosition = kerbalVesselBehavior.transform.position + 0.001f*cameraUpOffset*kerbalVesselBehavior.transform.up + 0.001f*cameraForwardOffset*kerbalVesselBehavior.transform.forward;
                 currentCamera.transform.position = targetPosition;
                 
                 // Sync cameras and desync by time
@@ -183,6 +296,8 @@ namespace EloxKerbalview
                 scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
 
                 lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
+
+                //GameManager.Instance.Game.InputManager.SetInputLock(KSP.Input.InputLocks.EVAInputDisabled);
 
                 firstPersonEnabled = true;
             } catch (Exception exception) {
@@ -214,13 +329,18 @@ namespace EloxKerbalview
                 skyCamera.transform.localRotation = Quaternion.identity;
                 scaledCamera.transform.localRotation = Quaternion.identity;
 
+                setTelescope(0);
+                unlockCamera();
+
+                GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 30;
+                GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(savedFov);
                 currentCamera.nearClipPlane = savedNearClip;
-                currentCamera.fieldOfView = savedFov;
             }
-            
+
             GameManager.Instance.Game.CameraManager.EnableInput();
 
             kerbal = null;
+            kerbalVesselBehavior = null;
             kerbalBehavior = null;
 
             firstPersonEnabled = false;
@@ -234,11 +354,11 @@ namespace EloxKerbalview
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
             kerbal = (activeVessel != null && activeVessel.IsKerbalEVA )? activeVessel : null;
             if (kerbal != null) {
-                kerbalBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal);
+                kerbalVesselBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
                 kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction);
+                kerbalBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal.SimulationObject.Kerbal);
             }
-            
-            return kerbalBehavior != null;
+            return kerbalVesselBehavior != null;
         }
 
 
