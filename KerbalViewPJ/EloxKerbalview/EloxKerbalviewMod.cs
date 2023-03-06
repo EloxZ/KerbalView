@@ -22,6 +22,7 @@ namespace EloxKerbalview
         KSP.Sim.impl.VesselBehavior kerbalVesselBehavior = null;
         KSP.Sim.impl.KerbalBehavior kerbalBehavior = null;
         Sprite telescopeSprite;
+        Texture2D telescopeTexture;
         float lastKerbalYRotation;
 
         Camera currentCamera;
@@ -49,6 +50,9 @@ namespace EloxKerbalview
 
         public override void OnInitialized() {
             Logger.LogInfo("KerbalView is initialized");
+            telescopeTexture = SpaceWarp.API.Assets.AssetManager.GetAsset<Texture2D>("EloxKerbalView/images/telescopeMask.png");
+            telescopeSprite = Sprite.Create(telescopeTexture, new Rect(0.0f, 0.0f, telescopeTexture.width, telescopeTexture.height), new Vector2(0.5f, 0.5f));
+            toggleLightsAction = new KSP.Sim.Definitions.ModuleAction(toggleHelmetLights);
 
             if (loaded) {
                 Destroy(this);
@@ -60,42 +64,55 @@ namespace EloxKerbalview
             loaded = true; 
         }
 
-        void Awake() {
+        void Start() {
             firstPersonEnabled = false;
             telescopeMode = 0;
             cameraLocked = false;
-            telescopeSprite = SpaceWarp.API.Assets.AssetManager.GetAsset<Sprite>($"{SpaceWarpMetadata.ModID}/images/telescopeMask.png");
-            toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)toggleHelmetLights);
         }
 
         void Update() {
             if (loaded) {
-                GameStateConfiguration gameStateConfiguration = GameManager.Instance.Game.GlobalGameState.GetGameState();
-                if (gameStateConfiguration.IsFlightMode) {
-                    if (kerbalVesselBehavior != null) {
-                        if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
-                        if (isFirstPersonViewEnabled()) {
-                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
-                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
-                            kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
+                try
+                {
+                    if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode)
+                    {
+                        if (kerbalVesselBehavior != null && kerbalBehavior != null)
+                        {
+                            if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
+                            if (isFirstPersonViewEnabled())
+                            {
+                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
+                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
+                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
 
-                            if (Input.GetKeyDown(KeyCode.Mouse1) || cameraLocked && Input.GetKeyDown(KeyCode.M)) toggleLockCamera();
-                            if (cameraLocked) handleCameraMovement();
+                                if (Input.GetKeyDown(KeyCode.Mouse1) || cameraLocked && Input.GetKeyDown(KeyCode.M)) toggleLockCamera();
+                                if (cameraLocked) handleCameraMovement();
 
-                            updateStars();
-                        }
+                                updateStars();
+                            }
 
-                        if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
-                        if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
-                            if (!isFirstPersonViewEnabled()) {
-                                enableFirstPerson();
-                            } else {
-                                disableFirstPerson();
+                            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
+                            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto)
+                            {
+                                if (!isFirstPersonViewEnabled())
+                                {
+                                    enableFirstPerson();
+                                }
+                                else
+                                {
+                                    disableFirstPerson();
+                                }
                             }
                         }
-                    } else {
-                        findKerbal();
+                        else
+                        {
+                            findKerbal();
+                        }
                     }
+                
+                } catch (Exception e)
+                {
+                    Logger.LogError(e.StackTrace);
                 }
             }
         }
@@ -103,12 +120,19 @@ namespace EloxKerbalview
         void toggleScopeSight() {
             if (telescopeSight) {
                 Destroy(telescopeSight);
+                if (!GameManager.Instance.Game.UI.FlightHud.IsVisible) GameManager.Instance.Game.UI.FlightHud.ToggleFlightHUD();
             } else {
                 telescopeSight = new GameObject("TelescopeSight");
+                var rectTransform = telescopeSight.AddComponent<RectTransform>();
                 var image = telescopeSight.AddComponent<UnityEngine.UI.Image>();
+
+                rectTransform.anchorMin = new Vector2(0, 0);
+                rectTransform.anchorMax = new Vector2(1, 1);
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                if (GameManager.Instance.Game.UI.FlightHud.IsVisible) GameManager.Instance.Game.UI.FlightHud.ToggleFlightHUD();
                 image.sprite = telescopeSprite;
+
                 telescopeSight.transform.SetParent(GameObject.Find("Canvas")?.transform, false);
-                telescopeSight.transform.localScale = Vector3.one;
             }
         }
 
@@ -302,7 +326,7 @@ namespace EloxKerbalview
                 firstPersonEnabled = true;
             } catch (Exception exception) {
                 // For unknown error cases
-                Logger.LogError(exception.Message);
+                Logger.LogError(exception.StackTrace);
                 GameManager.Instance.Game.CameraManager.EnableInput();
             }
 
@@ -329,7 +353,6 @@ namespace EloxKerbalview
                 skyCamera.transform.localRotation = Quaternion.identity;
                 scaledCamera.transform.localRotation = Quaternion.identity;
 
-                setTelescope(0);
                 unlockCamera();
 
                 GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 30;
@@ -352,10 +375,18 @@ namespace EloxKerbalview
 
         bool findKerbal() {
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
-            kerbal = (activeVessel != null && activeVessel.IsKerbalEVA )? activeVessel : null;
+            kerbal = (activeVessel != null && activeVessel.IsKerbalEVA)? activeVessel : null;
             if (kerbal != null) {
-                kerbalVesselBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
-                kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction);
+                kerbalVesselBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal);
+                try
+                {
+                    kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction); // Throws Exception sometimes
+                }
+                catch (Exception e)
+                {
+
+                }
+                
                 kerbalBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal.SimulationObject.Kerbal);
             }
             return kerbalVesselBehavior != null;
