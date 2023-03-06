@@ -13,9 +13,9 @@ namespace EloxKerbalview
     [BepInDependency(SpaceWarpPlugin.ModGuid, SpaceWarpPlugin.ModVer)]
     public class EloxKerbalviewMod : BaseSpaceWarpPlugin
     {
+        private static EloxKerbalviewMod Instance { get; set; }
         static bool loaded = false;
         static bool firstPersonEnabled = false;
-        private static EloxKerbalviewMod Instance { get; set; }
 
         KSP.Sim.impl.VesselComponent kerbal = null;
         KSP.Sim.impl.VesselBehavior kerbalBehavior = null;
@@ -46,10 +46,12 @@ namespace EloxKerbalview
             if (loaded) {
                 Destroy(this);
             }
-
-            loaded = true;
         }
 
+        public override void OnPostInitialized()
+        {
+            loaded = true; 
+        }
         void Awake() {
             firstPersonEnabled = false;
             toggleLightsAction = new KSP.Sim.Definitions.ModuleAction((Delegate)toggleHelmetLights);
@@ -232,7 +234,7 @@ namespace EloxKerbalview
             var activeVessel = GameManager.Instance.Game.ViewController.GetActiveSimVessel();
             kerbal = (activeVessel != null && activeVessel.IsKerbalEVA )? activeVessel : null;
             if (kerbal != null) {
-                kerbalBehavior = Game.ViewController.GetBehaviorIfLoaded(kerbal);
+                kerbalBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal);
                 kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction);
             }
             
