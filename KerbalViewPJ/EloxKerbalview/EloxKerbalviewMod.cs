@@ -7,6 +7,7 @@ using SpaceWarp.API.UI.Appbar;
 using SpaceWarp.API.Mods;
 using SpaceWarp.API.UI;
 using BepInEx;
+using KSP.Api.CoreTypes;
 
 namespace EloxKerbalview
 {   
@@ -47,12 +48,15 @@ namespace EloxKerbalview
         static float currentCameraPitch = 0, maxCameraPitch = 40, currentCameraYaw = 0, maxCameraYaw = 40;
         static int telescopeMode = 0;
         static float sensitivity = 1;
+        static KSP.Sim.Definitions.ModuleProperty<Color> helmetLightsColorProperty;
+        Color helmetLightsColor = Color.white;
 
         public override void OnInitialized() {
             Logger.LogInfo("KerbalView is initialized");
             telescopeTexture = SpaceWarp.API.Assets.AssetManager.GetAsset<Texture2D>("EloxKerbalView/images/telescopeMask.png");
             telescopeSprite = Sprite.Create(telescopeTexture, new Rect(0.0f, 0.0f, telescopeTexture.width, telescopeTexture.height), new Vector2(0.5f, 0.5f));
             toggleLightsAction = new KSP.Sim.Definitions.ModuleAction(toggleHelmetLights);
+            helmetLightsColorProperty = new KSP.Sim.Definitions.ModuleProperty<Color>(helmetLightsColor);
 
             if (loaded) {
                 Destroy(this);
@@ -326,7 +330,7 @@ namespace EloxKerbalview
                 firstPersonEnabled = true;
             } catch (Exception exception) {
                 // For unknown error cases
-                Logger.LogError(exception.StackTrace);
+                Logger.LogError(exception.ToString());
                 GameManager.Instance.Game.CameraManager.EnableInput();
             }
 
@@ -380,11 +384,13 @@ namespace EloxKerbalview
                 kerbalVesselBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal);
                 try
                 {
-                    kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction); // Throws Exception sometimes
+                    kerbal.SimulationObject.Kerbal.KerbalData.AddAction("Toggle Helmet Lights", toggleLightsAction); 
+                    kerbal.SimulationObject.Kerbal.KerbalData.AddProperty("helmetLightsColor", helmetLightsColorProperty); // Doesn't work :(
+                    
                 }
-                catch (Exception e)
+                catch (Exception exception)
                 {
-
+                    Logger.LogInfo(exception.ToString());
                 }
                 
                 kerbalBehavior = GameManager.Instance.Game.ViewController.GetBehaviorIfLoaded(kerbal.SimulationObject.Kerbal);
