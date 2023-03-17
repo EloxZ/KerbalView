@@ -76,15 +76,11 @@ namespace EloxKerbalview
 
         void Update() {
             if (loaded) {
-                try
-                {
-                    if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode)
-                    {
-                        if (kerbalVesselBehavior != null && kerbalBehavior != null)
-                        {
+                try {
+                    if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode) {
+                        if (kerbalVesselBehavior != null && kerbalBehavior != null) {
                             if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
-                            if (isFirstPersonViewEnabled())
-                            {
+                            if (isFirstPersonViewEnabled()) {
                                 kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
                                 kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
                                 kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
@@ -96,14 +92,10 @@ namespace EloxKerbalview
                             }
 
                             if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.L)) toggleHelmetLights();
-                            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto)
-                            {
-                                if (!isFirstPersonViewEnabled())
-                                {
+                            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha2) && GameManager.Instance.Game.CameraManager.FlightCamera.Mode == KSP.Sim.CameraMode.Auto) {
+                                if (!isFirstPersonViewEnabled()) {
                                     enableFirstPerson();
-                                }
-                                else
-                                {
+                                } else {
                                     disableFirstPerson();
                                 }
                             }
