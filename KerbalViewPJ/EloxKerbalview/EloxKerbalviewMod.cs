@@ -8,6 +8,7 @@ using SpaceWarp.API.Mods;
 using SpaceWarp.API.UI;
 using BepInEx;
 using KSP.Api.CoreTypes;
+using System.Collections;
 
 namespace EloxKerbalview
 {   
@@ -22,6 +23,9 @@ namespace EloxKerbalview
         KSP.Sim.impl.VesselComponent kerbal = null;
         KSP.Sim.impl.VesselBehavior kerbalVesselBehavior = null;
         KSP.Sim.impl.KerbalBehavior kerbalBehavior = null;
+        GameObject kerbalCam = null;
+        static int kerbalCamIndex = 0;
+
         Sprite telescopeSprite;
         Texture2D telescopeTexture;
         float lastKerbalYRotation;
@@ -33,9 +37,9 @@ namespace EloxKerbalview
         Quaternion savedRotation;
         Transform savedParent;
 
-        static float cameraNearClipPlane = 1;
+        static float cameraNearClipPlane = 20;
         static float cameraFOV = 90;
-        static float cameraForwardOffset = 190;
+        static float cameraForwardOffset = 170;
         static float cameraUpOffset = 70;
 
         float savedFov;
@@ -50,6 +54,8 @@ namespace EloxKerbalview
         static float sensitivity = 1;
         static KSP.Sim.Definitions.ModuleProperty<Color> helmetLightsColorProperty;
         Color helmetLightsColor = Color.white;
+
+        GameObject cameraParent;
 
         public override void OnInitialized() {
             Logger.LogInfo("KerbalView is initialized");
@@ -78,13 +84,16 @@ namespace EloxKerbalview
             if (loaded) {
                 try {
                     if (GameManager.Instance.Game.GlobalGameState.GetGameState().IsFlightMode) {
-                        if (kerbalVesselBehavior != null && kerbalBehavior != null) {
+                        if (kerbalVesselBehavior != null || kerbalCam != null) {
                             if (isFirstPersonViewEnabled() && gameChangedCamera()) disableFirstPerson();
                             if (isFirstPersonViewEnabled()) {
-                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
-                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
-                                kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
+                                if (kerbalBehavior != null) {
+                                    kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("iEmote"), 0);
+                                    kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("fRandomIdle"), 0);
+                                    kerbalBehavior.EVAAnimationManager.Animator.SetFloat(Animator.StringToHash("tFidget"), 0);
+                                }
 
+                                if (kerbalCam != null && Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.Alpha3)) nextKerbalCam();
                                 if (Input.GetKeyDown(KeyCode.Mouse1) || cameraLocked && Input.GetKeyDown(KeyCode.M)) toggleLockCamera();
                                 if (cameraLocked) handleCameraMovement();
 
@@ -99,10 +108,8 @@ namespace EloxKerbalview
                                     disableFirstPerson();
                                 }
                             }
-                        }
-                        else
-                        {
-                            findKerbal();
+                        } else {
+                            if (!findKerbal()) findKerbalCam();
                         }
                     }
                 
@@ -111,6 +118,39 @@ namespace EloxKerbalview
                     Logger.LogError(e.StackTrace);
                 }
             }
+        }
+
+        void findKerbalCam() {
+            kerbalCamIndex = 0;
+            foreach (Camera c in Camera.allCameras) {
+                if (c.gameObject.name == "kerbalCam" && c.gameObject.transform.parent.FindChildRecursive("bone_kerbal_master_parent")) {
+                    kerbalCam = c.gameObject;
+                    break;
+                }
+            }
+        }
+
+        void nextKerbalCam() {
+            List<GameObject> kerbalCams = new List<GameObject>();
+            foreach (Camera c in Camera.allCameras) {
+                if (c.gameObject.name == "kerbalCam" && c.gameObject.transform.parent.FindChildRecursive("bone_kerbal_master_parent")) {
+                    kerbalCams.Add(c.gameObject);
+                }
+            }
+            if (kerbalCams.Count > 1) {
+                kerbalCamIndex++;
+                kerbalCamIndex %= kerbalCams.Count;
+            
+                try {
+                    kerbalCam.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.one;
+                    kerbalCam = kerbalCams[kerbalCamIndex];
+                    kerbalCam.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.zero;
+                    cameraParent.transform.SetParent(kerbalCam.transform, false);
+                } catch (Exception e) {
+
+                }
+            }
+
         }
 
         void toggleScopeSight() {
@@ -265,11 +305,11 @@ namespace EloxKerbalview
             var targetY = skyCamera.transform.eulerAngles.y + movement;
             
             skyCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
-            scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, targetY, currentCamera.transform.eulerAngles.z);
+            scaledCamera.transform.eulerAngles = new Vector3(currentCamera.transform.eulerAngles.x, currentCamera.transform.eulerAngles.y, currentCamera.transform.eulerAngles.z);
         }
 
         bool gameChangedCamera() {
-            return currentCamera != Camera.main || currentCamera.enabled == false || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal;
+            return currentCamera != Camera.main || currentCamera.enabled == false || GameManager.Instance.Game.CameraManager.FlightCamera.Mode != KSP.Sim.CameraMode.Auto || kerbalVesselBehavior != null && GameManager.Instance.Game.ViewController.GetActiveSimVessel() != kerbal || kerbalCam != null && findKerbal() || cameraParent == null;
         }
         
         void enableFirstPerson() {
@@ -288,6 +328,8 @@ namespace EloxKerbalview
                     }
                 }
 
+                if (!cameraParent) cameraParent = new GameObject();
+
                 // Save config
                 savedParent = currentCamera.transform.parent;
                 savedRotation = currentCamera.transform.localRotation;
@@ -304,16 +346,49 @@ namespace EloxKerbalview
                 var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
 
                 // Anchor camera to our little friend
-                currentCamera.transform.parent = kerbalVesselBehavior.transform;
+                if (kerbalVesselBehavior) {
+                    cameraParent.transform.parent = kerbalVesselBehavior.transform.parent.GetComponentInChildren<Kerbal3DModel>().transform;
+                } else {
+                    cameraParent.transform.parent = kerbalCam.transform;
+                }
+                cameraParent.transform.parent.gameObject.AddComponent<OnDestroyHandler>();
+                currentCamera.transform.parent = cameraParent.transform;
+
+                if (kerbalVesselBehavior) {
+                    cameraParent.transform.localRotation = Quaternion.identity;
+                } else {
+                    cameraParent.transform.localEulerAngles = new Vector3(0, 180, 0);
+                }
+
                 currentCamera.transform.localRotation = Quaternion.identity;
-                var targetPosition = kerbalVesselBehavior.transform.position + 0.001f*cameraUpOffset*kerbalVesselBehavior.transform.up + 0.001f*cameraForwardOffset*kerbalVesselBehavior.transform.forward;
+
+
+                var targetPosition = (kerbalVesselBehavior) ? kerbalVesselBehavior.transform.position + 0.001f * cameraUpOffset * kerbalVesselBehavior.transform.up + 0.001f * cameraForwardOffset * kerbalVesselBehavior.transform.forward
+                    : kerbalCam.transform.position + 0.001f * cameraUpOffset * kerbalCam.transform.up + 0.003f * cameraForwardOffset * kerbalCam.transform.forward;
+                cameraParent.transform.position = targetPosition;
                 currentCamera.transform.position = targetPosition;
-                
+
+                // Hide kerbal model
+                try {
+                    if (kerbalVesselBehavior) {
+                        kerbalVesselBehavior.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.zero;
+                    } else {
+                        kerbalCam.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.zero;
+                    }
+                } catch (Exception e) {
+
+                }
+
+                // Remove camera collision
+                //try {
+                //currentCamera.gameObject.GetComponent<Rigidbody>().isKinematic = false;
+                //} catch (Exception e) {
+                //}
+
                 // Sync cameras and desync by time
                 skyCamera.transform.rotation = currentCamera.transform.rotation;
                 scaledCamera.transform.rotation = currentCamera.transform.rotation;
                 skyCamera.transform.eulerAngles += new Vector3(0,time,0);
-                scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
 
                 lastKerbalYRotation = currentCamera.transform.rotation.eulerAngles.y;
 
@@ -330,6 +405,16 @@ namespace EloxKerbalview
         }
 
         void disableFirstPerson() {
+            // Enable kerbal model
+            try {
+                if (kerbalVesselBehavior) {
+                    kerbalVesselBehavior.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.one;
+                } else {
+                    kerbalCam.transform.parent.FindChildRecursive("bone_kerbal_master_parent").parent.localScale = Vector3.one;
+                }
+            } catch (Exception e) {
+
+            }
             // To avoid NullRefs
             if (currentCamera && skyCamera && scaledCamera) {
                 var time = skyCamera.transform.eulerAngles.y - currentCamera.transform.eulerAngles.y;
@@ -338,12 +423,12 @@ namespace EloxKerbalview
                 currentCamera.transform.parent = savedParent;
                 currentCamera.transform.localPosition = savedPosition;
                 currentCamera.transform.localRotation = savedRotation;
+                Destroy(cameraParent);
 
                 // Sync cameras and desync by time
                 skyCamera.transform.rotation = currentCamera.transform.rotation;
                 scaledCamera.transform.rotation = currentCamera.transform.rotation;
                 skyCamera.transform.eulerAngles += new Vector3(0,time,0);
-                scaledCamera.transform.eulerAngles += new Vector3(0,time,0);
 
                 // Reset local rotations (tends to variate a bit with movement)
                 skyCamera.transform.localRotation = Quaternion.identity;
@@ -354,6 +439,8 @@ namespace EloxKerbalview
                 GameManager.Instance.Game.CameraManager.FlightCamera.Tweakables.minFOV = 30;
                 GameManager.Instance.Game.CameraManager.FlightCamera.ActiveSolution.SetCameraFieldOfView(savedFov);
                 currentCamera.nearClipPlane = savedNearClip;
+
+                if (Camera.main == null) currentCamera.enabled = true;
             }
 
             GameManager.Instance.Game.CameraManager.EnableInput();
@@ -361,6 +448,7 @@ namespace EloxKerbalview
             kerbal = null;
             kerbalVesselBehavior = null;
             kerbalBehavior = null;
+            kerbalCam = null;
 
             firstPersonEnabled = false;
         }
@@ -390,7 +478,17 @@ namespace EloxKerbalview
             return kerbalVesselBehavior != null;
         }
 
-
+        class OnDestroyHandler : MonoBehaviour {
+            void OnDestroy() {
+                Instance.cameraParent.transform.parent = null;
+                foreach (Camera c in Camera.allCameras) {
+                    if (c.gameObject.name == "FlightCameraPhysics_Main") {
+                        c.enabled = true;
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
